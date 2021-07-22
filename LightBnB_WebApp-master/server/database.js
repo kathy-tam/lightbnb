@@ -90,28 +90,36 @@ const getAllProperties = function(options, limit = 10) {
     FROM properties
     JOIN property_reviews ON properties.id = property_id
     `;
-  
+
+    if(Object.keys(options).length !== 0) {
+      queryString += `WHERE `
+    }
+
+    const queryOptions = [];
+
     // 3
     if (options.city) {
       queryParams.push(`%${options.city}%`);
-      queryString += `WHERE city LIKE $${queryParams.length} `;
+      queryOptions.push(`city LIKE $${queryParams.length} `);
     }
 
     if (options.owner_id) {
       queryParams.push(`${options.owner_id}`);
-      queryString += `AND owner_id = $${queryParams.length} `;
+      queryOptions.push(`owner_id = $${queryParams.length} `);
     }
 
     if (options.minimum_price_per_night) {
       queryParams.push(`${options.minimum_price_per_night*100}`);
-      queryString += `AND cost_per_night >= $${queryParams.length} `;
+      queryOptions.push(`cost_per_night >= $${queryParams.length} `);
     }
 
     if (options.maximum_price_per_night) {
       queryParams.push(`${options.maximum_price_per_night*100}`);
-      queryString += `AND cost_per_night <= $${queryParams.length} `;
+      queryOptions.push(`cost_per_night <= $${queryParams.length} `);
     }
     
+    queryString += queryOptions.join(' AND ');
+
     // 4
     queryString += `
     GROUP BY properties.id
@@ -144,9 +152,12 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  const { owner_id, title, description, thumbnail_photo_url, cover_photo_url, cost_per_night, street, city, province, post_code, country, parking_spaces, number_of_bathrooms, number_of_bedrooms } = property;
+  return pool.query(`
+  INSERT INTO properties(owner_id, title, description, thumbnail_photo_url, cover_photo_url, cost_per_night, parking_spaces, number_of_bathrooms, number_of_bedrooms, country, street, city, province, post_code)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+  RETURNING *;
+  `, [owner_id, title, description, thumbnail_photo_url, cover_photo_url, cost_per_night, parking_spaces, number_of_bathrooms, number_of_bedrooms, country, street, city, province, post_code])
+  .then(res => res.rows[0]);
 }
 exports.addProperty = addProperty;
